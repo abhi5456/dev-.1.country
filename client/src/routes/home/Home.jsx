@@ -326,7 +326,7 @@ const Home = ({ subdomain = config.tld }) => {
           )}
       {!record?.renter && (
         <Col>
-          <Title>Page Not Yet Claimed</Title>
+          <Title>Page Not Yet Claimed TESTTT</Title>
           <SmallTextGrey style={{ marginTop: 32, textAlign: 'center' }}>
             Claim now and embed a tweet you choose
           </SmallTextGrey>
