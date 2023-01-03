@@ -1,11 +1,9 @@
 import React from 'react'
 import styled from 'styled-components'
-
 export const FlexRow = styled.div`
   display: flex;
   flex-direction: row;
   box-sizing: border-box;
-  align-items: center;
 `
 
 export const FlexColumn = styled.div`

@@ -47,7 +47,7 @@ const config: HardhatUserConfig = {
       chainId: 1666700000,
       live: true,
       gasMultiplier: 2,
-      saveDeployments: true
+      saveDeployments: false
     },
     mainnet: {
       url: process.env.MAINNET_URL,
