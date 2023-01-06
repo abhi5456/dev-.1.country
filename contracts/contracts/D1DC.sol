@@ -6,12 +6,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-interface INameResolver {
-    function setName(address addr, string memory name) external;
-
-    function nameOf(address addr) external view returns (string memory);
-}
-
 /**
     @title A subdomain manager contract for .1.country (D1DC - Dot 1 Dot Country)
     @author John Whitton (github.com/johnwhitton), reviewed and revised by Aaron Li (github.com/polymorpher)
@@ -22,8 +16,6 @@ interface INameResolver {
     D1DC creates ERC721 tokens for each domain registration.
  */
 contract D1DC is ERC721, Pausable, Ownable {
-    INameResolver public defaultResolver;
-
     bool public initialized;
     uint256 public baseRentalPrice;
     uint32 public rentalPeriod;
@@ -51,7 +43,6 @@ contract D1DC is ERC721, Pausable, Ownable {
     event NameRented(string indexed name, address indexed renter, uint256 price, string url);
     event URLUpdated(string indexed name, address indexed renter, string oldUrl, string newUrl);
     event RevenueAccountChanged(address from, address to);
-    event DefaultResolverChanged(INameResolver indexed resolver);
 
     //TODO create the EREC721 token at time of construction
     constructor(
@@ -114,13 +105,6 @@ contract D1DC is ERC721, Pausable, Ownable {
             bytes32 key = keccak256(bytes(_names[i]));
             nameRecords[key] = _records[i];
             keys.push(key);
-            if(nameRecords[key].renter != address(0)){
-                _safeMint(nameRecords[key].renter, uint256(key));
-                if (bytes(defaultResolver.nameOf(nameRecords[key].renter)).length == 0){
-                    defaultResolver.setName(nameRecords[key].renter, _names[i]);
-                }
-            }
-
             if (i >= 1 && bytes(nameRecords[key].prev).length == 0) {
                 nameRecords[key].prev = _names[i - 1];
             }
@@ -174,10 +158,6 @@ contract D1DC is ERC721, Pausable, Ownable {
             _safeMint(msg.sender, tokenId);
         }
 
-        if (bytes(defaultResolver.nameOf(msg.sender)).length == 0){
-            defaultResolver.setName(msg.sender, name);
-        }
-
         uint256 excess = msg.value - price;
         if (excess > 0) {
             (bool success,) = msg.sender.call{value : excess}("");
@@ -207,30 +187,5 @@ contract D1DC is ERC721, Pausable, Ownable {
         require(msg.sender == owner() || msg.sender == revenueAccount, "D1DC: must be owner or revenue account");
         (bool success,) = revenueAccount.call{value : address(this).balance}("");
         require(success, "D1DC: failed to withdraw");
-    }
-
-    function setDefaultResolver(address resolver) public onlyOwner {
-        require(
-            address(resolver) != address(0),
-            "Resolver address must not be 0"
-        );
-        defaultResolver = INameResolver(resolver);
-        emit DefaultResolverChanged(INameResolver(resolver));
-    }
-
-    function setNameForRenter(string calldata name)
-        public
-        whenNotPaused
-    {
-        require(
-            nameRecords[keccak256(bytes(name))].renter == msg.sender,
-            "D1DC: not owner"
-        );
-
-        return defaultResolver.setName(msg.sender, name);
-    }
-
-    function nameOf(address addr) public view returns (string memory) {
-        return defaultResolver.nameOf(addr);
     }
 }

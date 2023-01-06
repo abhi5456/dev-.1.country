@@ -1,4 +1,0 @@
-[
-  "function nameOf(address) view returns (string)",
-  "function setName(address,string)"
-]
