@@ -33,6 +33,13 @@ contract VanityURL is
     /// @dev Fee withdrawal address
     address public revenueAccount;
 
+    /// @dev D1DCV2 Token Id -> Alias Name -> User -> Timestamp the user paid for the video url
+    /// @dev Video vanity URL is valid only if nameOwnerUpdateAt <= videoVanityURLPaidAt
+    mapping(bytes32 => mapping(string => mapping(address => uint256))) public videoVanityURLPaidAt;
+
+    /// @dev Price for the video vanity URLs
+    uint256 public videoVanityURLPrice;
+
     event NewURLSet(
         address by,
         string indexed name,
@@ -52,6 +59,11 @@ contract VanityURL is
         string oldURL,
         string indexed newURL
     );
+    event VideoVanityURLPaid(
+        address indexed by,
+        string indexed name,
+        string indexed aliasNAme
+    );
     event RevenueAccountChanged(address indexed from, address indexed to);
 
     modifier onlyD1DCV2NameOwner(string memory _name) {
@@ -65,6 +77,7 @@ contract VanityURL is
     function initialize(
         address _addressRegistry,
         uint256 _urlUpdatePrice,
+        uint256 _videoVanityURLPrice,
         address _revenueAccount
     ) external initializer {
         __Pausable_init();
@@ -73,6 +86,7 @@ contract VanityURL is
 
         addressRegistry = IAddressRegistry(_addressRegistry);
         urlUpdatePrice = _urlUpdatePrice;
+        videoVanityURLPrice = _videoVanityURLPrice;
         revenueAccount = _revenueAccount;
     }
 
@@ -91,6 +105,10 @@ contract VanityURL is
 
     function updateURLUpdatePrice(uint256 _urlUpdatePrice) external onlyOwner {
         urlUpdatePrice = _urlUpdatePrice;
+    }
+
+    function updateVideoVanityURLPrice(uint256 _videoVanityURLPrice) external onlyOwner {
+        videoVanityURLPrice = _videoVanityURLPrice;
     }
 
     function setNewURL(
@@ -182,6 +200,38 @@ contract VanityURL is
         return
             nameOwnerUpdateAt[tokenId] <=
                 vanityURLUpdatedAt[tokenId][_aliasName]
+                ? true
+                : false;
+    }
+
+    function payForVideoVanityURLAccess(string memory _name, string memory _aliasName) external payable {
+        bytes32 tokenId = keccak256(bytes(_name));
+        require(
+            !checkVideoVanityURLAccess(_name, _aliasName, msg.sender),
+            "VanityURL: already paid"
+        );
+
+        uint256 price = videoVanityURLPrice;
+        require(price <= msg.value, "VanityURL: insufficient payment");
+
+        // pay for the video vanity URL access
+        videoVanityURLPaidAt[tokenId][_aliasName][msg.sender] = block.timestamp;
+
+        // returns the exceeded payment
+        uint256 excess = msg.value - price;
+        if (excess > 0) {
+            (bool success, ) = msg.sender.call{value: excess}("");
+            require(success, "cannot refund excess");
+        }
+
+        emit VideoVanityURLPaid(msg.sender, _name, _aliasName);
+    }
+
+    function checkVideoVanityURLAccess(string memory _name, string memory _aliasName, address _user) public view returns (bool) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        return
+            nameOwnerUpdateAt[tokenId] <
+                videoVanityURLPaidAt[tokenId][_aliasName][_user]
                 ? true
                 : false;
     }
